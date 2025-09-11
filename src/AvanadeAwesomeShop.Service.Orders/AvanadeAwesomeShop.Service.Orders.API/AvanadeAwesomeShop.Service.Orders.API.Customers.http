@@ -1,0 +1,37 @@
+### Get all customers
+GET http://localhost:5001/api/customers
+Accept: application/json
+
+###
+
+### Get customer by ID
+GET http://localhost:5001/api/customers/{{customerId}}
+Accept: application/json
+
+###
+
+### Get customer by email
+GET http://localhost:5001/api/customers/by-email/joao@email.com
+Accept: application/json
+
+###
+
+### Create new customer
+POST http://localhost:5001/api/customers
+Content-Type: application/json
+
+{
+  "fullName": "João Silva",
+  "email": "joao.silva@email.com"
+}
+
+###
+
+### Create customer with existing email (should return 409 Conflict)
+POST http://localhost:5001/api/customers
+Content-Type: application/json
+
+{
+  "fullName": "Maria Santos", 
+  "email": "joao.silva@email.com"
+}

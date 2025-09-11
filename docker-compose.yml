@@ -1,0 +1,40 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbiitmq
+    ports:
+      - "5672:5672" # Porta para a aplicação se conectar
+      - "15672:15672" # Porta para a interface web de gerenciamento
+    environment:
+      RABBITMQ_DEFAULT_USER: "guest"
+      RABBITMQ_DEFAULT_PASS: "guest"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics -q ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - infrastructure-network
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  seq:
+    image: datalust/seq:latest
+    container_name: seq
+    ports:
+      - "5341:80"
+    environment:
+      ACCEPT_EULA: Y
+      SEQ_FIRSTRUN_ADMINPASSWORD: "admin123"
+    networks:
+      - infrastructure-network
+    volumes:
+      - seq_data:/data
+
+volumes:
+  rabbitmq_data:
+  seq_data:
+
+networks:
+  infrastructure-network:
+    driver: bridge

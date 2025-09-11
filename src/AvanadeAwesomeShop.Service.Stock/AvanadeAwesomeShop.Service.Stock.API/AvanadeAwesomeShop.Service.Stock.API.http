@@ -1,0 +1,6 @@
+@AvanadeAwesomeShop.Service.Stock.API_HostAddress = http://localhost:5211
+
+GET {{AvanadeAwesomeShop.Service.Stock.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
