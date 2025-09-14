@@ -1,13 +1,19 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using MediatR;
 using AvanadeAwesomeShop.Service.Orders.Domain.Entities;
 using AvanadeAwesomeShop.Service.Orders.Infrastructure.Configurations;
+using AvanadeAwesomeShop.Service.Orders.Application.Events;
 
 namespace AvanadeAwesomeShop.Service.Orders.Infrastructure.Data
 {
     public class OrdersDbContext : DbContext
     {
-        public OrdersDbContext(DbContextOptions<OrdersDbContext> options) : base(options)
+        private readonly IMediator? _mediator;
+
+        public OrdersDbContext(DbContextOptions<OrdersDbContext> options, IMediator? mediator = null) 
+            : base(options)
         {
+            _mediator = mediator;
         }
 
         public DbSet<Order> Orders { get; set; }
@@ -38,8 +44,37 @@ namespace AvanadeAwesomeShop.Service.Orders.Infrastructure.Data
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
+            // Coletar domain events antes de salvar
+            var domainEntities = ChangeTracker.Entries<AggregateRoot>()
+                .Where(e => e.Entity.DomainEvents.Any())
+                .ToList();
 
-            return await base.SaveChangesAsync(cancellationToken);
+            var domainEvents = domainEntities
+                .SelectMany(e => e.Entity.DomainEvents)
+                .ToList();
+
+            // Limpar domain events das entidades
+            domainEntities.ForEach(e => e.Entity.ClearDomainEvents());
+
+            // Salvar mudanças no banco primeiro
+            var result = await base.SaveChangesAsync(cancellationToken);
+
+            // Publicar domain events via MediatR usando o adapter
+            if (_mediator != null)
+            {
+                foreach (var domainEvent in domainEvents)
+                {
+                    var notificationType = typeof(DomainEventNotification<>).MakeGenericType(domainEvent.GetType());
+                    var notification = Activator.CreateInstance(notificationType, domainEvent);
+                    
+                    if (notification != null)
+                    {
+                        await _mediator.Publish(notification, cancellationToken);
+                    }
+                }
+            }
+
+            return result;
         }
     }
 }

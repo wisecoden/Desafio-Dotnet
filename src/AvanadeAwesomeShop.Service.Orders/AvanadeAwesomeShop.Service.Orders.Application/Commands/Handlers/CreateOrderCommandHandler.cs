@@ -4,27 +4,20 @@ using AvanadeAwesomeShop.Service.Orders.Application.Dtos;
 using AvanadeAwesomeShop.Service.Orders.Domain.Entities;
 using AvanadeAwesomeShop.Service.Orders.Domain.Repositories;
 using AvanadeAwesomeShop.Service.Orders.Domain.Enums;
-using AvanadeAwesomeShop.Service.Orders.Application.Services;
 
 namespace AvanadeAwesomeShop.Service.Orders.Application.Commands.Handlers
 {
     public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, OrderDto>
     {
-    private readonly IOrderRepository _orderRepository;
-    private readonly ICustomerRepository _customerRepository;
-    private readonly IStockNotificationService _stockNotificationService;
-    private readonly IStockService _stockService;
+        private readonly IOrderRepository _orderRepository;
+        private readonly ICustomerRepository _customerRepository;
 
         public CreateOrderCommandHandler(
             IOrderRepository orderRepository,
-            ICustomerRepository customerRepository,
-            IStockNotificationService stockNotificationService,
-            IStockService stockService)
+            ICustomerRepository customerRepository)
         {
             _orderRepository = orderRepository;
             _customerRepository = customerRepository;
-            _stockNotificationService = stockNotificationService;
-            _stockService = stockService;
         }
 
         public async Task<OrderDto> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
@@ -36,43 +29,18 @@ namespace AvanadeAwesomeShop.Service.Orders.Application.Commands.Handlers
                 throw new InvalidOperationException($"Customer with email {request.OrderDto.CustomerEmail} not found. Please create the customer first.");
             }
 
-            // Validar estoque dos produtos antes de criar o pedido
-            var stockChecks = request.OrderDto.Items
-                .Select(item => _stockService.HasStockAsync(item.ProductId, item.Quantity))
-                .ToArray();
-            var stockResults = await Task.WhenAll(stockChecks);
-            bool hasAllStock = stockResults.All(x => x);
-
-            // Criar o pedido (status Started)
+            // Criar o pedido com status "Started" - validação de estoque será assíncrona
             var order = new Order(customer.Id);
             foreach (var itemDto in request.OrderDto.Items)
             {
                 order.AddItem(itemDto.ProductId, itemDto.Quantity, itemDto.Price);
             }
+            
+            // Apenas criar - não validar estoque aqui (será feito pelo event handler)
             order.CreateOrder();
 
-            if (hasAllStock)
-            {
-                order.ConfirmOrder();
-            }
-            else
-            {
-                order.CancelOrder("Estoque insuficiente para um ou mais itens do pedido.");
-            }
-
+            // Salvar o pedido - isso vai disparar o OrderCreatedEvent
             var createdOrder = await _orderRepository.CreateAsync(order);
-
-            // Só notifica redução de estoque se confirmado
-            if (createdOrder.Status == OrderStatus.Completed)
-            {
-                foreach (var item in createdOrder.Items)
-                {
-                    await _stockNotificationService.NotifyStockReductionAsync(
-                        item.ProductId,
-                        item.Quantity,
-                        createdOrder.Id);
-                }
-            }
 
             return MapToOrderDto(createdOrder);
         }
@@ -108,5 +76,5 @@ namespace AvanadeAwesomeShop.Service.Orders.Application.Commands.Handlers
                 _ => "Desconhecido"
             };
         }
-     }
+    }
 }

@@ -8,6 +8,7 @@ using AvanadeAwesomeShop.Service.Orders.Infrastructure.MessageBus;
 using AvanadeAwesomeShop.Service.Orders.Infrastructure.MessageBus.Services;
 using AvanadeAwesomeShop.Service.Orders.Infrastructure.MessageBus.Configuration;
 using AvanadeAwesomeShop.Service.Orders.Application.Services;
+using AvanadeAwesomeShop.Service.Orders.Infrastructure.Services;
 using RabbitMQ.Client;
 
 namespace AvanadeAwesomeShop.Service.Orders.Infrastructure
@@ -30,6 +31,7 @@ namespace AvanadeAwesomeShop.Service.Orders.Infrastructure
                 client.BaseAddress = new Uri("http://localhost:5063");
                 client.Timeout = TimeSpan.FromSeconds(5); // Timeout de 5 segundos
             });
+            services.AddScoped<IStockService, StockService>();
 
             // RabbitMQ Configuration
             var rabbitMQSettings = new RabbitMQSettings();

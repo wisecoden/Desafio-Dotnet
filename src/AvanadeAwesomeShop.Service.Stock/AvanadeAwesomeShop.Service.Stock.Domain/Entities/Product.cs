@@ -1,8 +1,9 @@
 namespace AvanadeAwesomeShop.Service.Stock.Domain.Entities
 {
-    public class Product : AggregateRoot
+    public class Product 
     {
         public string Name { get; private set; } = string.Empty;
+        public Guid Id { get; protected set; }
         public string Description { get; private set; } = string.Empty;
         public string Category { get; private set; } = string.Empty;
         public decimal Price { get; private set; }

@@ -96,7 +96,7 @@ namespace AvanadeAwesomeShop.Service.Orders.Infrastructure.Repositories
             return await _context.Orders.CountAsync(o => o.CustomerId == customerId);
         }
 
-        public async Task<decimal> GetTotalAmountByCustomerAsync(Guid customerId)
+        public async Task<decimal> GetTotalPriceByCustomerAsync(Guid customerId)
         {
             return await _context.Orders
                 .Where(o => o.CustomerId == customerId && o.Status == OrderStatus.Completed)

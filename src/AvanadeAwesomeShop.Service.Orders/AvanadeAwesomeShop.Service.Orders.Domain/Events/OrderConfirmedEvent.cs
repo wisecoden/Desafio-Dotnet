@@ -3,14 +3,14 @@
     public class OrderConfirmedEvent : DomainEvent
     {
         public Guid CustomerId { get; private set; }
-        public decimal TotalAmount { get; private set; }
+        public decimal TotalPrice { get; private set; }
         public List<OrderItemData> Items { get; private set; }
 
-        public OrderConfirmedEvent(Guid orderId, Guid customerId, decimal totalAmount, List<OrderItemData> items) 
+        public OrderConfirmedEvent(Guid orderId, Guid customerId, decimal totalprice, List<OrderItemData> items) 
             : base(orderId)
         {
             CustomerId = customerId;
-            TotalAmount = totalAmount;
+            TotalPrice = totalprice;
             Items = items;
         }
     }
@@ -19,13 +19,13 @@
     {
         public Guid ProductId { get; set; }
         public int Quantity { get; set; }
-        public decimal UnitPrice { get; set; }
+        public decimal Price { get; set; }
         
-        public OrderItemData(Guid productId, int quantity, decimal unitPrice)
+        public OrderItemData(Guid productId, int quantity, decimal price)
         {
             ProductId = productId;
             Quantity = quantity;
-            UnitPrice = unitPrice;
+            Price = price;
         }
     }
 }

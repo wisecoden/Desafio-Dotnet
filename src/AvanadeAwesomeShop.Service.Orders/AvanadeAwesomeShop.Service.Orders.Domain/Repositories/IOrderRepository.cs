@@ -21,6 +21,6 @@ namespace AvanadeAwesomeShop.Service.Orders.Domain.Repositories
         // Checks
         Task<bool> ExistsAsync(Guid id);
         Task<int> CountByCustomerAsync(Guid customerId);
-        Task<decimal> GetTotalAmountByCustomerAsync(Guid customerId);
+        Task<decimal> GetTotalPriceByCustomerAsync(Guid customerId);
     }
 }
