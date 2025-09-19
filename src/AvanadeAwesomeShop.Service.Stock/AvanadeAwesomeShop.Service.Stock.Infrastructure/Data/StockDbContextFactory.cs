@@ -8,7 +8,7 @@ public class StockDbContextFactory : IDesignTimeDbContextFactory<StockDbContext>
     public StockDbContext CreateDbContext(string[] args)
     {
         var optionsBuilder = new DbContextOptionsBuilder<StockDbContext>();
-        optionsBuilder.UseSqlServer("Server=(localdb)\\mssqllocaldb;Database=AvanadeAwesomeShop-Stock;Trusted_Connection=true;MultipleActiveResultSets=true");
+        optionsBuilder.UseSqlServer("Server=tcp:localhost,14330;Database=AvanadeAwesomeShop-Stock;User Id=sa;Password=AvanadeAwesome123!;TrustServerCertificate=true;MultipleActiveResultSets=true");
 
         return new StockDbContext(optionsBuilder.Options);
     }

@@ -9,12 +9,14 @@ namespace AvanadeAwesomeShop.Service.Orders.Infrastructure.Services
     {
         private readonly HttpClient _httpClient;
         private readonly ILogger<StockService> _logger;
+        private readonly IJwtTokenService _jwtTokenService;
         private readonly string _stockServiceBaseUrl;
 
-        public StockService(HttpClient httpClient, IConfiguration configuration, ILogger<StockService> logger)
+        public StockService(HttpClient httpClient, IConfiguration configuration, ILogger<StockService> logger, IJwtTokenService jwtTokenService)
         {
             _httpClient = httpClient;
             _logger = logger;
+            _jwtTokenService = jwtTokenService;
             _stockServiceBaseUrl = configuration["Services:Stock:BaseUrl"] ?? "https://localhost:5001";
         }
 
@@ -41,8 +43,20 @@ namespace AvanadeAwesomeShop.Service.Orders.Infrastructure.Services
             try
             {
                 _logger.LogInformation("Calling Stock API for ProductId: {ProductId} at {BaseUrl}", productId, _stockServiceBaseUrl);
-                var response = await _httpClient.GetAsync($"{_stockServiceBaseUrl}/api/products/{productId}");
                 
+                // Gerar token JWT para a requisição
+                var token = _jwtTokenService.GenerateServiceToken();
+                _logger.LogInformation("Generated JWT token for Stock API call: {TokenStart}...", token.Substring(0, Math.Min(50, token.Length)));
+                
+                // Criar request com Authorization header
+                using var request = new HttpRequestMessage(HttpMethod.Get, $"{_stockServiceBaseUrl}/v1/products/{productId}");
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                
+                var response = await _httpClient.SendAsync(request);
+                
+                // Log do que foi enviado na requisição
+                _logger.LogInformation("Request sent with Authorization: Bearer {TokenStart}...", token.Substring(0, Math.Min(20, token.Length)));
+                    
                 _logger.LogInformation("Stock API response: StatusCode {StatusCode}", response.StatusCode);
                 
                 if (!response.IsSuccessStatusCode)

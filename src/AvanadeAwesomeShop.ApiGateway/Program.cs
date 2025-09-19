@@ -3,46 +3,33 @@ using Microsoft.IdentityModel.Tokens;
 using Ocelot.DependencyInjection;
 using Ocelot.Middleware;
 using System.Text;
+using System.Security.Claims;
+using Serilog;
 
+// Configurar Serilog
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.Hosting.Lifetime", Serilog.Events.LogEventLevel.Information)
+    .MinimumLevel.Override("Ocelot", Serilog.Events.LogEventLevel.Information) // Logs do Ocelot
+    .MinimumLevel.Override("System", Serilog.Events.LogEventLevel.Warning)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("Service", "ApiGateway")
+    .WriteTo.Console()
+    .WriteTo.Seq("http://localhost:5341")
+    .CreateLogger();
+
+try
+{
+    Log.Information("🚀 Iniciando AvanadeAwesomeShop API Gateway");
 
 var builder = WebApplication.CreateBuilder(args);
 
+    // Configurar Serilog
+builder.Host.UseSerilog();
+
 // Add services to the container.
 builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo 
-    { 
-        Title = "AvanadeAwesomeShop API Gateway", 
-        Version = "v1" 
-    });
-    
-    // Configurar JWT no Swagger
-    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-    {
-        Description = "JWT Authorization header usando Bearer scheme. Exemplo: 'Bearer {token}'",
-        Name = "Authorization",
-        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
-    });
-
-    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
-    {
-        {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-            {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
-                {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
-        }
-    });
-});
 
 // Configurar Ocelot
 builder.Configuration.AddJsonFile("ocelot.json", optional: false, reloadOnChange: true);
@@ -52,7 +39,7 @@ builder.Services.AddOcelot();
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]!);
 
-/*
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -60,26 +47,25 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer("Bearer", options =>
 {
-    options.RequireHttpsMetadata = false; // Para desenvolvimento
+    options.RequireHttpsMetadata = false; 
     options.SaveToken = true;
     // Adicionando evento de erro para debug
     options.Events = new JwtBearerEvents
     {
         OnAuthenticationFailed = context =>
         {
-            Console.WriteLine($"Authentication failed: {context.Exception.Message}");
-            return Task.CompletedTask;
-        },
-        OnTokenValidated = context =>
-        {
-            Console.WriteLine("Token validated successfully");
+            Log.Error("❌ Falha na autenticação: {Error}", context.Exception.Message);
             return Task.CompletedTask;
         },
         OnMessageReceived = context =>
         {
-            Console.WriteLine($"Message received: {context.Token}");
             return Task.CompletedTask;
-        }
+        },
+        OnTokenValidated = context =>
+        {
+            
+            return Task.CompletedTask;
+        },
     };
     options.TokenValidationParameters = new TokenValidationParameters
     {
@@ -90,11 +76,24 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidAudience = jwtSettings["Audience"],
         ValidateLifetime = true,
-        ClockSkew = TimeSpan.Zero
+        ClockSkew = TimeSpan.Zero,
+        RoleClaimType = ClaimTypes.Role, 
+        NameClaimType = ClaimTypes.Name
     };
 });
-*/
+
 // builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy => 
+        policy.RequireClaim("role", "Admin"));
+    
+    options.AddPolicy("AdminOrManager", policy => 
+        policy.RequireClaim("role", "Admin", "Manager"));
+    
+    options.AddPolicy("AllRoles", policy => 
+        policy.RequireClaim("role", "Admin", "Manager", "User"));
+});
 
 // CORS
 builder.Services.AddCors(options =>
@@ -111,26 +110,28 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-app.UseSwagger();
-app.UseSwaggerUI(c =>
-{
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "AvanadeAwesomeShop API Gateway v1");
-    c.RoutePrefix = "swagger"; // Acesse via /swagger
-});
-
 app.UseCors("AllowAll");
 
-// app.UseAuthentication();
-// app.UseAuthorization();
+app.UseAuthentication();
+app.UseAuthorization();
 
 // Mapear Controllers ANTES do Ocelot
 app.MapControllers();
 
-
-// Configurar Ocelot com condição para não interceptar /api/auth
-app.UseWhen(context => !context.Request.Path.StartsWithSegments("/api/auth"), appBuilder =>
+// Configurar Ocelot com condição para não interceptar /v1/auth
+app.UseWhen(context => !context.Request.Path.StartsWithSegments("/v1/auth"), appBuilder =>
 {
     appBuilder.UseOcelot().Wait();
 });
 
 app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "❌ API Gateway falhou ao iniciar");
+}
+finally
+{
+    Log.Information("🔄 Encerrando API Gateway...");
+    Log.CloseAndFlush();
+}

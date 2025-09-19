@@ -23,10 +23,10 @@ namespace AvanadeAwesomeShop.Service.Orders.Application.Commands.Handlers
         public async Task<OrderDto> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
         {
             // Validar se o cliente existe
-            var customer = await _customerRepository.GetByEmailAsync(request.OrderDto.CustomerEmail);
+            var customer = await _customerRepository.GetByIdAsync(request.OrderDto.CustomerId);
             if (customer == null)
             {
-                throw new InvalidOperationException($"Customer with email {request.OrderDto.CustomerEmail} not found. Please create the customer first.");
+                throw new InvalidOperationException($"Customer with ID {request.OrderDto.CustomerId} not found. Please create the customer first.");
             }
 
             // Criar o pedido com status "Started" - validação de estoque será assíncrona

@@ -9,8 +9,9 @@ using AvanadeAwesomeShop.Service.Stock.Application.Dtos;
 namespace AvanadeAwesomeShop.Service.Stock.API.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
-// [Authorize]
+[Tags("Products")]
+[Route("v1/[controller]")]
+[Authorize]
 public class ProductsController : ControllerBase
 {
     private readonly IMediator _mediator;
@@ -21,7 +22,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet]
-    // [Authorize(Roles = "Admin,Manager,User")] // Todos podem ver produtos
+    [Authorize(Roles = "Admin,Manager")]
     public async Task<ActionResult<IEnumerable<ProductDto>>> GetAllProducts()
     {
         var query = new GetAllProductsQuery();
@@ -30,20 +31,23 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    // [Authorize(Roles = "Admin,Manager,User")] // Todos podem ver produto específico
+   [Authorize(Roles = "Admin,Manager,User")]
     public async Task<ActionResult<ProductDto>> GetProduct(Guid id)
     {
         var query = new GetProductByIdQuery(id);
         var result = await _mediator.Send(query);
-        
+
         if (result == null)
             return NotFound();
-            
+
         return Ok(result);
     }
 
     [HttpPost]
-    // [Authorize(Roles = "Admin,Manager")] // Apenas Admin/Manager podem criar produtos
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [Authorize(Roles = "Admin,Manager,User")]
     public async Task<ActionResult<ProductDto>> CreateProduct([FromBody] CreateProductDto createProductDto)
     {
         var command = new CreateProductCommand(createProductDto);
@@ -52,7 +56,9 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    // [Authorize(Roles = "Admin,Manager")] // Apenas Admin/Manager podem atualizar estoque
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [Authorize(Roles = "Admin,Manager")]
     public async Task<ActionResult<ProductDto>> UpdateStock([FromRoute] Guid id, [FromBody] UpdateStockDto updateStockDto)
     {
         try

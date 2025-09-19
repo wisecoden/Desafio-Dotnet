@@ -8,32 +8,69 @@ using System.Text;
 namespace AvanadeAwesomeShop.ApiGateway.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("v1/[controller]")]
     public class AuthController : ControllerBase
     {
         private readonly IConfiguration _configuration;
+        private readonly ILogger<AuthController> _logger;
 
-        public AuthController(IConfiguration configuration)
+        public AuthController(IConfiguration configuration, ILogger<AuthController> logger)
         {
             _configuration = configuration;
+            _logger = logger;
         }
 
         [HttpPost("login")]
         public IActionResult Login([FromBody] LoginRequest request)
         {
-            // Validação simples de credenciais (em produção usar Identity ou similar)
-            if (IsValidUser(request.Username, request.Password))
+            var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            
+            // Validação de input
+            if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
             {
-                var token = GenerateJwtToken(request.Username);
-                return Ok(new LoginResponse 
-                { 
-                    Token = token,
-                    ExpiresIn = 3600, // 1 hora
-                    TokenType = "Bearer"
-                });
+                _logger.LogWarning("🚫 Login INVALID INPUT: Username or Password empty, IP={ClientIp}", clientIp);
+                return BadRequest(new { message = "Username e Password são obrigatórios" });
             }
 
-            return Unauthorized(new { message = "Credenciais inválidas" });
+            // Validação de tamanho (prevenir DoS)
+            if (request.Username.Length > 50 || request.Password.Length > 100)
+            {
+                _logger.LogWarning("🚫 Login INVALID LENGTH: Username or Password too long, IP={ClientIp}", clientIp);
+                return BadRequest(new { message = "Username ou Password muito longos" });
+            }
+            
+            try
+            {
+                // Validação simples de credenciais (em produção usar Identity ou similar)
+                if (IsValidUser(request.Username, request.Password))
+                {
+                    var userRole = GetUserRole(request.Username);
+                    var token = GenerateJwtToken(request.Username);
+                    
+                    _logger.LogInformation("🔑 Login SUCCESS: User={Username}, Role={Role}, IP={ClientIp}", 
+                        request.Username, userRole, clientIp);
+                    
+                    return Ok(new LoginResponse 
+                    { 
+                        Token = token,
+                        ExpiresIn = 3600, // 1 hora
+                        TokenType = "Bearer",
+                        UserRole = userRole
+                    });
+                }
+
+                _logger.LogWarning("🚫 Login FAILED: User={Username}, IP={ClientIp}", 
+                    request.Username, clientIp);
+                
+                return Unauthorized(new { message = "Credenciais inválidas" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Login ERROR: User={Username}, IP={ClientIp}", 
+                    request.Username, clientIp);
+                
+                return StatusCode(500, new { message = "Erro interno do servidor" });
+            }
         }
 
         [HttpPost("register")]
@@ -57,17 +94,28 @@ namespace AvanadeAwesomeShop.ApiGateway.Controllers
 
         private bool IsValidUser(string username, string password)
         {
-            // Validação simples para demonstração
+            // Validação simples para demonstração com hash básico
             // Em produção: validar contra banco de dados com hash de senha
             var validUsers = new Dictionary<string, string>
             {
-                { "admin", "admin123" },
-                { "manager", "manager123" },
-                { "user", "user123" },
-                { "test", "test123" },
+                // Senhas com hash SHA256 simples (para demo)
+                { "admin", HashPassword("admin123") },
+                { "manager", HashPassword("manager123") },
+                { "user", HashPassword("user123") },
             };
 
-            return validUsers.ContainsKey(username) && validUsers[username] == password;
+            return validUsers.ContainsKey(username) && 
+                   validUsers[username] == HashPassword(password);
+        }
+
+        private string HashPassword(string password)
+        {
+            // Hash simples para demo (em produção usar bcrypt)
+            using (var sha256 = System.Security.Cryptography.SHA256.Create())
+            {
+                var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password + "salt123"));
+                return Convert.ToBase64String(hashedBytes);
+            }
         }
 
         private string GetUserRole(string username)
@@ -78,7 +126,6 @@ namespace AvanadeAwesomeShop.ApiGateway.Controllers
                 { "admin", "Admin" },
                 { "manager", "Manager" },
                 { "user", "User" },
-                { "test", "User" }
             };
 
             return userRoles.GetValueOrDefault(username, "User");
@@ -90,18 +137,16 @@ namespace AvanadeAwesomeShop.ApiGateway.Controllers
             var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]!);
             var userRole = GetUserRole(username);
 
-            var claims = new[]
-            {
-                new Claim(ClaimTypes.Name, username),
-                new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
-                new Claim(ClaimTypes.Role, userRole),
-                new Claim("username", username),
-                new Claim("role", userRole)
-            };
-
+            var tokenHandler = new JwtSecurityTokenHandler();
             var tokenDescriptor = new SecurityTokenDescriptor
             {
-                Subject = new ClaimsIdentity(claims),
+                Subject = new ClaimsIdentity(new[]
+                {
+                    new Claim(ClaimTypes.Name, username),
+                    new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+                    new Claim("role", userRole),
+                    new Claim("username", username)
+                }),
                 Expires = DateTime.UtcNow.AddHours(1),
                 Issuer = jwtSettings["Issuer"],
                 Audience = jwtSettings["Audience"],
@@ -110,9 +155,14 @@ namespace AvanadeAwesomeShop.ApiGateway.Controllers
                     SecurityAlgorithms.HmacSha256Signature)
             };
 
-            var tokenHandler = new JwtSecurityTokenHandler();
             var token = tokenHandler.CreateToken(tokenDescriptor);
-            return tokenHandler.WriteToken(token);
+            var tokenString = tokenHandler.WriteToken(token);
+            
+            // Log seguro (sem expor token completo)
+            _logger.LogDebug("🔑 JWT token generated for user: {Username}, expires: {Expires}", 
+                username, tokenDescriptor.Expires);
+            
+            return tokenString;
         }
     }
 
@@ -134,5 +184,6 @@ namespace AvanadeAwesomeShop.ApiGateway.Controllers
         public string Token { get; set; } = string.Empty;
         public int ExpiresIn { get; set; }
         public string TokenType { get; set; } = string.Empty;
+        public string UserRole { get; set; } = string.Empty;
     }
 }

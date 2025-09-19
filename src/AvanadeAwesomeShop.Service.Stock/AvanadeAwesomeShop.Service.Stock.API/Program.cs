@@ -47,7 +47,7 @@ builder.Services.AddInfrastructureServices(builder.Configuration);
 // Configurar JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]!);
-/*
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -62,7 +62,7 @@ builder.Services.AddAuthentication(options =>
     {
         OnAuthenticationFailed = context =>
         {
-            Console.WriteLine($"Authentication failed: {context.Exception.Message}");
+           Console.WriteLine($"Authentication failed: {context.Exception.Message}");
             return Task.CompletedTask;
         },
         OnTokenValidated = context =>
@@ -84,7 +84,7 @@ builder.Services.AddAuthentication(options =>
 });
 
 builder.Services.AddAuthorization();
-*/
+
 // CORS
 builder.Services.AddCors(options =>
 {
@@ -129,9 +129,9 @@ app.UseHttpsRedirection();
 
 app.UseCors("AllowAll");
 
-// Add Authentication and Authorization middleware
-// app.UseAuthentication();
-// app.UseAuthorization();
+    // Add Authentication and Authorization middleware
+app.UseAuthentication();
+app.UseAuthorization();
 
     app.MapControllers();
 

@@ -47,7 +47,7 @@ builder.Services.AddInfrastructureServices(builder.Configuration);
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]!);
 
-/* builder.Services.AddAuthentication(options =>
+builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -83,7 +83,7 @@ var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]!);
 });
 
 builder.Services.AddAuthorization();
-*/
+
 // CORS
 builder.Services.AddCors(options =>
 {
@@ -131,8 +131,8 @@ app.UseHttpsRedirection();
 app.UseCors("AllowAll");
 
 // Add Authentication and Authorization middleware
-// app.UseAuthentication();
-// app.UseAuthorization();
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 

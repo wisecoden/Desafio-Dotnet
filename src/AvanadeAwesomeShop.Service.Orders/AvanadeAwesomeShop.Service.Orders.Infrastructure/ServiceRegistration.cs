@@ -25,12 +25,16 @@ namespace AvanadeAwesomeShop.Service.Orders.Infrastructure
             services.AddScoped<IOrderRepository, OrderRepository>();
             services.AddScoped<ICustomerRepository, CustomerRepository>();
 
-            // Integração com Stock
+            // JWT Token Service para comunicação entre serviços
+            services.AddScoped<IJwtTokenService, JwtTokenService>();
+
+            // Integração com Stock - método simplificado
             services.AddHttpClient<IStockService, StockService>(client =>
             {
                 client.BaseAddress = new Uri("http://localhost:5063");
-                client.Timeout = TimeSpan.FromSeconds(5); // Timeout de 5 segundos
+                client.Timeout = TimeSpan.FromSeconds(5);
             });
+            
             services.AddScoped<IStockService, StockService>();
 
             // RabbitMQ Configuration

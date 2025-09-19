@@ -1,0 +1,150 @@
+================================================================================
+                            MICROSERVIÇO ORDERS
+================================================================================
+
+ABSTRACT CLASS: AggregateRoot
+-----------------------------
+DESCRIÇÃO: Classe base para agregados DDD com suporte a eventos de domínio.
+
+PROPRIEDADES:
+• Id (Guid): Identificador único do agregado
+• DomainEvents (IReadOnlyCollection<IDomainEvent>): Lista de eventos gerados
+
+MÉTODOS:
+• AddDomainEvent(IDomainEvent): Adiciona evento ao agregado
+• ClearDomainEvents(): Limpa eventos após processamento
+
+RESPONSABILIDADES:
+• Gerenciar eventos de domínio
+• Fornecer identificação única para entidades
+• Implementar padrão Aggregate Root do DDD
+
+================================================================================
+
+ENTITY: Order (Aggregate Root)
+------------------------------
+DESCRIÇÃO: Representa um pedido no sistema, contendo itens e status.
+
+PROPRIEDADES:
+• Id (Guid): Identificador único do pedido
+• CustomerId (Guid): Referência ao cliente que fez o pedido
+• Status (OrderStatus): Status atual do pedido
+• TotalPrice (decimal): Valor total do pedido
+• CreatedAt (DateTime): Data/hora de criação
+• UpdatedAt (DateTime): Data/hora da última atualização
+• Items (IReadOnlyCollection<OrderItem>): Lista somente leitura dos itens
+
+ESTADOS (OrderStatus):
+• Started (1): Pedido iniciado, aguardando validação
+• Completed (2): Pedido confirmado e processado
+• Rejected (3): Pedido rejeitado por algum motivo
+
+MÉTODOS PÚBLICOS:
+• Order(customerId): Construtor principal
+• AddItem(productId, quantity, price): Adiciona item ao pedido
+• CreateOrder(): Finaliza criação e dispara evento
+• ConfirmOrder(): Confirma pedido e dispara evento
+• CancelOrder(reason): Cancela pedido com motivo
+
+EVENTOS DISPARADOS:
+• OrderCreatedEvent: Quando o pedido é criado
+• OrderConfirmedEvent: Quando o pedido é confirmado
+• OrderCancelledEvent: Quando o pedido é cancelado
+
+REGRAS DE NEGÓCIO:
+• CustomerId não pode ser Guid.Empty
+• Pedido deve ter pelo menos um item
+• Total é calculado automaticamente
+• Status só pode ser alterado por métodos específicos
+• Items duplicados são consolidados
+
+FLUXO DE VIDA:
+1. Criado com status "Started"
+2. Validação de estoque (assíncrona)
+3. Confirmação ou rejeição baseada no estoque
+4. Redução de estoque após confirmação
+
+================================================================================
+
+ENTITY: OrderItem
+-----------------
+DESCRIÇÃO: Representa um item dentro de um pedido.
+
+PROPRIEDADES:
+• Id (Guid): Identificador único do item
+• ProductId (Guid): Referência ao produto no microserviço Stock
+• Quantity (int): Quantidade solicitada
+• Price (decimal): Preço unitário no momento do pedido
+
+MÉTODOS PÚBLICOS:
+• OrderItem(productId, quantity, price): Construtor principal
+• UpdateQuantity(newQuantity): Atualiza quantidade
+• UpdatePrice(newPrice): Atualiza preço unitário
+
+REGRAS DE NEGÓCIO:
+• ProductId não pode ser Guid.Empty
+• Quantity deve ser maior que zero
+• Price deve ser maior que zero
+• Preço é "fotografado" no momento do pedido
+• Quantidade pode ser consolidada para mesmo produto
+
+RELACIONAMENTOS:
+• Pertence a um Order (agregado pai)
+• Referencia Product por Id (microserviço Stock)
+
+================================================================================
+
+ENTITY: Customer (Aggregate Root)
+---------------------------------
+DESCRIÇÃO: Representa um cliente do sistema.
+
+PROPRIEDADES:
+• Id (Guid): Identificador único do cliente
+• FullName (string): Nome completo do cliente
+• Email (string): Email único do cliente
+• CreatedAt (DateTime): Data/hora de cadastro
+
+MÉTODOS PÚBLICOS:
+• Customer(fullName, email): Construtor principal
+
+REGRAS DE NEGÓCIO:
+• Email deve ser válido (validação via MailAddress)
+• Email deve ser único no sistema
+• FullName é obrigatório
+• Data de criação é automática
+
+RELACIONAMENTOS:
+• Pode ter múltiplos Orders
+• Identificado por email único
+
+================================================================================
+                            FLUXOS DE NEGÓCIO
+================================================================================
+
+FLUXO DE CRIAÇÃO DE PEDIDO
+---------------------------
+1. Cliente envia dados via API Gateway
+2. Orders cria entidade Order com status "Started"
+3. Dispara OrderCreatedEvent
+4. OrderCreatedEventHandler valida estoque via HTTP
+5. Se estoque OK: ConfirmOrder() → OrderConfirmedEvent
+6. Se estoque insuficiente: CancelOrder() → OrderCancelledEvent
+7. OrderConfirmedEventHandler publica evento via RabbitMQ
+8. Stock processa evento e reduz estoque físico
+
+FLUXO DE VALIDAÇÃO DE ESTOQUE
+------------------------------
+1. Orders gera JWT com role "Service"
+2. Chama Stock via HTTP com autenticação
+3. Stock valida JWT e autoriza acesso
+4. Retorna dados do produto e quantidade disponível
+5. Orders decide confirmação ou rejeição baseado na resposta
+
+FLUXO DE REDUÇÃO DE ESTOQUE
+----------------------------
+1. Order confirmado dispara OrderConfirmedEvent
+2. Event handler publica mensagem RabbitMQ
+3. Stock consome mensagem assincronamente
+4. Product.ReduceStock() atualiza quantidade
+5. Persistência no banco de dados
+6. Log de operação realizada

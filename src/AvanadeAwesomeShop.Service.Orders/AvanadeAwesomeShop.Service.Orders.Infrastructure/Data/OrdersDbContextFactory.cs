@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
 namespace AvanadeAwesomeShop.Service.Orders.Infrastructure.Data
@@ -9,8 +9,7 @@ namespace AvanadeAwesomeShop.Service.Orders.Infrastructure.Data
         {
             var optionsBuilder = new DbContextOptionsBuilder<OrdersDbContext>();
             
-
-            optionsBuilder.UseSqlServer("Server=(localdb)\\mssqllocaldb;Database=AvanadeAwesomeShop-Orders;Trusted_Connection=true;MultipleActiveResultSets=true");
+            optionsBuilder.UseSqlServer("Server=localhost,14330;Database=AvanadeAwesomeShop-Orders;User Id=sa;Password=AvanadeAwesome123!;TrustServerCertificate=true;MultipleActiveResultSets=true");
 
             return new OrdersDbContext(optionsBuilder.Options);
         }

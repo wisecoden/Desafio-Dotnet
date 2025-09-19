@@ -1,0 +1,36 @@
+================================================================================
+                            MICROSERVIÇO STOCK
+================================================================================
+
+ENTITY: Product
+---------------
+DESCRIÇÃO: Representa um produto e seu estoque.
+
+PROPRIEDADES:
+• Id (Guid): Identificador único do produto
+• Name (string): Nome do produto
+• Description (string): Descrição detalhada
+• Category (string): Categoria do produto
+• Price (decimal): Preço atual de venda
+• Quantity (int): Quantidade em estoque
+• CreatedAt (DateTime): Data/hora de criação
+• UpdatedAt (DateTime): Data/hora da última atualização
+
+MÉTODOS PÚBLICOS:
+• Product(name, description, category, price, initialStock): Construtor
+• HasStock(quantity): Verifica se tem estoque suficiente
+• UpdateStock(quantity): Atualiza estoque total
+• ReduceStock(quantity): Reduz estoque (venda)
+• AddStock(quantity): Adiciona estoque (reposição)
+
+REGRAS DE NEGÓCIO:
+• Quantity não pode ser negativa
+• Price deve ser maior que zero
+• Name é obrigatório
+• UpdatedAt é atualizado automaticamente em mudanças
+• Redução de estoque valida disponibilidade
+
+OPERAÇÕES DE ESTOQUE:
+• Validação: Verificar se há quantidade suficiente
+• Reserva: Reduzir estoque após venda confirmada
+• Reposição: Adicionar estoque quando necessário
